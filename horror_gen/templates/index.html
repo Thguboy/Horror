@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Animated background particles -->
+<div class="bg-particles" id="particles"></div>
+
+<!-- Floating horror elements -->
+<div class="floating-element skull" style="top: 10%; left: 5%;">💀</div>
+<div class="floating-element ghost" style="top: 30%; right: 8%;">👻</div>
+<div class="floating-element eye" style="bottom: 20%; left: 10%;">👁️</div>
+<div class="floating-element bat" style="top: 15%; right: 15%;">🦇</div>
+
+<!-- Flickering overlay -->
+<div class="flicker-overlay"></div>
+
+<!-- AI Loading Overlay -->
+<div class="ai-loading-overlay" id="aiLoadingOverlay">
+    <div class="ai-loading-brain">🧠</div>
+    <div class="ai-loading-text">AI o'ylayapti...</div>
+    <div class="ai-loading-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+</div>
+
+<!-- Error Toast -->
+<div class="error-toast" id="errorToast"></div>
+
+<!-- Main Container -->
+<div class="container">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <span class="logo-icon">🎃</span>
+            <h1 class="logo-text">
+                <span class="glitch" data-text="HORROR">HORROR</span>
+                <span class="logo-sub">Story Generator</span>
+            </h1>
+        </div>
+        <p class="tagline">Qorong'ulik ichidan hikoyalar tug'iladi... 🌑</p>
+    </header>
+
+    <!-- Generator Form -->
+    <section class="generator-section">
+        <div class="section-header">
+            <div class="blood-drip"></div>
+            <h2 class="section-title">⚙️ Parametrlarni tanlang</h2>
+            <p class="section-desc">Hikoyangiz uchun joylashuv, qahramon va dahshat turini belgilang</p>
+        </div>
+
+        <form method="POST" action="/" class="horror-form" id="horrorForm">
+            <div class="form-grid">
+
+                <!-- Location -->
+                <div class="form-group">
+                    <label for="location" class="form-label">
+                        <span class="label-icon">📍</span>
+                        Joylashuv
+                    </label>
+                    <div class="select-wrapper">
+                        <select name="location" id="location" required>
+                            <option value="" disabled {% if not selected.location %}selected{% endif %}>— Tanlang —</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc }}" {% if selected.location == loc %}selected{% endif %}>{{ loc }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                </div>
+
+                <!-- Character -->
+                <div class="form-group">
+                    <label for="character" class="form-label">
+                        <span class="label-icon">🧑‍💻</span>
+                        Bosh qahramon
+                    </label>
+                    <div class="select-wrapper">
+                        <select name="character" id="character" required>
+                            <option value="" disabled {% if not selected.character %}selected{% endif %}>— Tanlang —</option>
+                            {% for char in characters %}
+                            <option value="{{ char }}" {% if selected.character == char %}selected{% endif %}>{{ char }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                </div>
+
+                <!-- Horror Type -->
+                <div class="form-group">
+                    <label for="horror_type" class="form-label">
+                        <span class="label-icon">👹</span>
+                        Dahshat turi
+                    </label>
+                    <div class="select-wrapper">
+                        <select name="horror_type" id="horror_type" required>
+                            <option value="" disabled {% if not selected.horror_type %}selected{% endif %}>— Tanlang —</option>
+                            {% for ht in horror_types %}
+                            <option value="{{ ht }}" {% if selected.horror_type == ht %}selected{% endif %}>{{ ht }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Toggle -->
+            <div class="ai-toggle-section">
+                <label class="ai-toggle-label">
+                    <span>🤖 AI Rejim</span>
+                    <span class="ai-badge">GPT</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="use_ai" id="useAiToggle" {% if ai_available %}{% else %}disabled{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="ai-status-text" id="aiStatusText">
+                    {% if ai_available %}
+                        O'chirilgan
+                    {% else %}
+                        API kalit yo'q
+                    {% endif %}
+                </span>
+            </div>
+
+            <button type="submit" class="btn-generate" id="generateBtn">
+                <span class="btn-text">🔮 Hikoya Generatsiya Qilish</span>
+                <span class="btn-loading">
+                    <span class="spinner"></span>
+                    Generatsiya qilinmoqda...
+                </span>
+                <div class="btn-glow"></div>
+            </button>
+        </form>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section" id="results" style="{% if not story %}display:none{% endif %}">
+
+        <!-- Story Card -->
+        <div class="result-card story-card">
+            <div class="card-header">
+                <div class="card-icon">📖</div>
+                <h3 class="card-title">Dahshatli Hikoya</h3>
+                <div class="card-badge" id="storyBadge">
+                    {% if ai_used %}
+                        <span class="badge-ai">🤖 AI Generated</span>
+                    {% else %}
+                        {{ selected.horror_type }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-meta" id="storyMeta">
+                <span class="meta-item" id="metaLocation">📍 {{ selected.location }}</span>
+                <span class="meta-divider">|</span>
+                <span class="meta-item" id="metaCharacter">🧑 {{ selected.character }}</span>
+            </div>
+            <div class="card-body">
+                <div class="story-text" id="storyText">{{ story if story else '' }}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn-action btn-copy" onclick="HorrorApp.copyText('storyText', this)" id="copyStoryBtn">
+                    <span class="action-icon">📋</span>
+                    Nusxalash
+                </button>
+            </div>
+        </div>
+
+        <!-- Image Prompt Card -->
+        <div class="result-card prompt-card">
+            <div class="card-header">
+                <div class="card-icon">🎨</div>
+                <h3 class="card-title">Rasm Prompt (Midjourney / DALL-E)</h3>
+                <div class="card-badge badge-prompt" id="promptBadge">English Prompt</div>
+            </div>
+            <div class="card-body">
+                <div class="prompt-text" id="promptText">{{ image_prompt if image_prompt else '' }}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn-action btn-copy" onclick="HorrorApp.copyText('promptText', this)" id="copyPromptBtn">
+                    <span class="action-icon">📋</span>
+                    Nusxalash
+                </button>
+            </div>
+        </div>
+
+        <!-- Regenerate CTA -->
+        <div class="regenerate-section">
+            <p class="regen-text">Boshqa hikoya kerakmi? 👆 Parametrlarni o'zgartiring yoki qayta bosing!</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p class="footer-text">🎃 AI Horror Story Generator — 2026</p>
+            <p class="footer-sub">Qorong'ulikdan ilhomlangan. Flask + OpenAI bilan yaratilgan.</p>
+        </div>
+    </footer>
+</div>
+
+<!-- =============================================
+     Main Application JavaScript
+     ============================================= -->
+<script>
+const HorrorApp = (() => {
+    // =============================================
+    // 🔧 Utility Functions
+    // =============================================
+
+    function $(selector) {
+        return document.querySelector(selector);
+    }
+
+    function $$(selector) {
+        return document.querySelectorAll(selector);
+    }
+
+    // =============================================
+    // 📋 Copy to Clipboard
+    // =============================================
+    function copyText(elementId, btn) {
+        const text = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="action-icon">✅</span> Nusxalandi!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('copied');
+            }, 2000);
+        }).catch(() => {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="action-icon">✅</span> Nusxalandi!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+
+    // =============================================
+    // 🎬 Typewriter Effect
+    // =============================================
+    function typewriterEffect(element, text, speed = 15) {
+        return new Promise(resolve => {
+            element.innerText = '';
+            element.style.visibility = 'visible';
+            let i = 0;
+            function typeChar() {
+                if (i < text.length) {
+                    element.innerText += text.charAt(i);
+                    i++;
+                    // Scroll element into view as text grows
+                    element.scrollTop = element.scrollHeight;
+                    setTimeout(typeChar, speed);
+                } else {
+                    resolve();
+                }
+            }
+            typeChar();
+        });
+    }
+
+    // =============================================
+    // ❌ Error Toast
+    // =============================================
+    function showError(message) {
+        const toast = $('#errorToast');
+        toast.textContent = '⚠️ ' + message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 4000);
+    }
+
+    // =============================================
+    // 🔄 AI Loading Overlay
+    // =============================================
+    function showAiLoading(show) {
+        const overlay = $('#aiLoadingOverlay');
+        if (show) {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // =============================================
+    // 📊 Update Results UI
+    // =============================================
+    function updateResults(data) {
+        const resultsSection = $('#results');
+
+        // Update meta
+        $('#metaLocation').textContent = '📍 ' + data.location;
+        $('#metaCharacter').textContent = '🧑 ' + data.character;
+
+        // Update badges
+        if (data.ai_used) {
+            $('#storyBadge').innerHTML = '<span class="badge-ai">🤖 AI Generated</span>';
+            $('#promptBadge').innerHTML = '<span class="badge-ai">🤖 AI Prompt</span>';
+        } else {
+            $('#storyBadge').textContent = data.horror_type;
+            $('#promptBadge').textContent = 'English Prompt';
+            $('#promptBadge').className = 'card-badge badge-prompt';
+        }
+
+        // Show results
+        resultsSection.style.display = '';
+
+        // Typewriter for story
+        const storyEl = $('#storyText');
+        const promptEl = $('#promptText');
+
+        promptEl.textContent = data.image_prompt;
+
+        typewriterEffect(storyEl, data.story, 15).then(() => {
+            // Scroll to results after typewriter
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        // Scroll to results fast too
+        setTimeout(() => {
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+    }
+
+    // =============================================
+    // 🚀 AJAX Form Submission
+    // =============================================
+    function handleFormSubmit(e) {
+        const aiToggle = $('#useAiToggle');
+        const useAi = aiToggle && aiToggle.checked;
+
+        // If AI is ON — use AJAX, else use normal form POST
+        if (useAi) {
+            e.preventDefault();
+
+            const location = $('#location').value;
+            const character = $('#character').value;
+            const horrorType = $('#horror_type').value;
+
+            if (!location || !character || !horrorType) {
+                showError('Iltimos, barcha parametrlarni tanlang!');
+                return;
+            }
+
+            // Show AI loading overlay
+            showAiLoading(true);
+
+            fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    location: location,
+                    character: character,
+                    horror_type: horrorType,
+                    use_ai: true
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Server xatosi');
+                return response.json();
+            })
+            .then(data => {
+                showAiLoading(false);
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                updateResults(data);
+            })
+            .catch(error => {
+                showAiLoading(false);
+                showError('Xatolik yuz berdi: ' + error.message);
+                console.error('API Error:', error);
+            });
+        } else {
+            // Normal form submit — show button loading
+            const btn = $('#generateBtn');
+            btn.classList.add('loading');
+        }
+    }
+
+    // =============================================
+    // 🎛️ AI Toggle Handler
+    // =============================================
+    function handleAiToggle() {
+        const toggle = $('#useAiToggle');
+        const statusText = $('#aiStatusText');
+        if (!toggle) return;
+
+        toggle.addEventListener('change', function() {
+            if (this.checked) {
+                statusText.textContent = 'AI yoqilgan ✨';
+                statusText.classList.add('active');
+            } else {
+                statusText.textContent = "O'chirilgan";
+                statusText.classList.remove('active');
+            }
+        });
+    }
+
+    // =============================================
+    // ✨ Background Particles
+    // =============================================
+    function createParticles() {
+        const container = $('#particles');
+        if (!container) return;
+
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.top = Math.random() * 100 + '%';
+            const size = (Math.random() * 4 + 1) + 'px';
+            particle.style.width = size;
+            particle.style.height = size;
+            particle.style.animationDelay = Math.random() * 8 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 8) + 's';
+
+            // Random color: mostly red, some green
+            if (Math.random() > 0.7) {
+                particle.style.background = 'var(--green-neon)';
+                particle.style.boxShadow = '0 0 6px var(--green-glow)';
+            }
+
+            fragment.appendChild(particle);
+        }
+        container.appendChild(fragment);
+    }
+
+    // =============================================
+    // 🖱️ Mouse Glow Trail (throttled)
+    // =============================================
+    function setupMouseGlow() {
+        let lastTime = 0;
+        const throttleMs = 50; // limit DOM writes
+
+        document.addEventListener('mousemove', function(e) {
+            const now = Date.now();
+            if (now - lastTime < throttleMs) return;
+            lastTime = now;
+
+            const glow = document.createElement('div');
+            glow.className = 'mouse-glow';
+            glow.style.left = e.pageX + 'px';
+            glow.style.top = e.pageY + 'px';
+            document.body.appendChild(glow);
+            setTimeout(() => glow.remove(), 600);
+        });
+    }
+
+    // =============================================
+    // 🎵 Ambient Horror Sound (optional)
+    // =============================================
+    function playHorrorSound() {
+        // Create a subtle eerie sound using Web Audio API
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(80, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 1.5);
+
+            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 1.5);
+        } catch (e) {
+            // Audio not supported — silently fail
+        }
+    }
+
+    // =============================================
+    // 🌟 Select Hover Effects
+    // =============================================
+    function setupSelectEffects() {
+        $$('.select-wrapper select').forEach(select => {
+            select.addEventListener('change', function() {
+                this.closest('.form-group').style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    this.closest('.form-group').style.transform = '';
+                }, 200);
+            });
+        });
+    }
+
+    // =============================================
+    // 🎬 Initial Typewriter (for server-rendered stories)
+    // =============================================
+    function initialTypewriter() {
+        const storyEl = $('#storyText');
+        if (!storyEl || !storyEl.textContent.trim()) return;
+
+        const text = storyEl.textContent.trim();
+        typewriterEffect(storyEl, text, 15);
+
+        // Scroll to results
+        setTimeout(() => {
+            const results = $('#results');
+            if (results) {
+                results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 300);
+    }
+
+    // =============================================
+    // 🏁 Initialize Application
+    // =============================================
+    function init() {
+        // Setup event listeners
+        const form = $('#horrorForm');
+        if (form) {
+            form.addEventListener('submit', handleFormSubmit);
+        }
+
+        handleAiToggle();
+        createParticles();
+        setupMouseGlow();
+        setupSelectEffects();
+
+        // Play sound on generate click
+        const btn = $('#generateBtn');
+        if (btn) {
+            btn.addEventListener('click', playHorrorSound);
+        }
+
+        // Initial typewriter for server-rendered content
+        {% if story %}
+        initialTypewriter();
+        {% endif %}
+    }
+
+    // Run when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Public API
+    return {
+        copyText,
+        showError,
+    };
+})();
+</script>
+{% endblock %}
